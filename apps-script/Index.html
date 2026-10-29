@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.nba.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /*
+      Direção visual: ginásio à noite. Base azul-marinho, laranja da bola só para ações,
+      e a cor do time de cada jogador como elemento marcante (atrás da foto recortada,
+      com as linhas da quadra). Barlow Condensed lembra numeração de camisa e placar.
+    */
+    :root {
+      --fundo:#101B30; --sup:#18263F; --sup2:#213252; --linha:#2C3F63;
+      --txt:#EEF2F8; --txt2:#B6C2D6; --mudo:#8B9BB6;
+      --bola:#B5501A; --bola-claro:#F08A4B;
+      --time:#2C3F63;
+      /* Séries do gráfico: paleta categórica validada (daltonismo + contraste) sobre #18263F */
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+      --quadra: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 240' fill='none' stroke='white' stroke-opacity='.16' stroke-width='2'%3E%3Ccircle cx='200' cy='240' r='60'/%3E%3Ccircle cx='200' cy='240' r='20'/%3E%3Cpath d='M0 240h400M120 0v90a80 80 0 0 0 160 0V0'/%3E%3Ccircle cx='200' cy='90' r='34'/%3E%3C/svg%3E");
+      --display:'Barlow Condensed', 'Arial Narrow', sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font:400 15px/1.5 Barlow, system-ui, sans-serif; background:var(--fundo); color:var(--txt); }
+    button, input { font:inherit; color:inherit; }
+    :focus-visible { outline:2px solid var(--bola-claro); outline-offset:2px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+    /* Cabeçalho */
+    header { position:sticky; top:0; z-index:10; background:rgba(16,27,48,.94); backdrop-filter:blur(8px);
+             padding:10px 20px; border-bottom:1px solid var(--linha); display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+    .marca { font:700 24px/1 var(--display); letter-spacing:.01em; margin:0; white-space:nowrap; }
+    .marca span { color:var(--bola-claro); }
+    .busca { flex:1; min-width:200px; max-width:440px; position:relative; }
+    .busca input { width:100%; padding:9px 40px 9px 14px; border-radius:10px; border:1px solid var(--linha); background:var(--sup); }
+    .busca input::placeholder { color:var(--mudo); }
+    .busca kbd { position:absolute; right:10px; top:8px; font:500 12px/20px Barlow; color:var(--mudo);
+                 border:1px solid var(--linha); border-radius:5px; padding:0 6px; }
+    .segmento { display:inline-flex; border:1px solid var(--linha); border-radius:10px; overflow:hidden; }
+    .segmento button { background:none; border:0; padding:7px 12px; cursor:pointer; color:var(--txt2); font-size:14px; }
+    .segmento button + button { border-left:1px solid var(--linha); }
+    .segmento button[aria-pressed="true"] { background:var(--sup2); color:var(--txt); font-weight:600; }
+
+    main { display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:18px; padding:18px 20px; max-width:1600px; margin:0 auto; }
+
+    /* Galeria: figurinhas com a cor do time atrás da foto */
+    .grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(156px,1fr)); gap:14px; }
+    .jog { background:var(--sup); border:0; border-radius:12px; overflow:hidden; cursor:pointer; padding:0; text-align:left; }
+    .jog .moldura { background:var(--time) var(--quadra) center/cover; aspect-ratio:1040/760; }
+    .jog:hover .moldura, .jog:focus-visible .moldura { filter:brightness(1.15); }
+    .jog .info { padding:8px 10px 11px; }
+    .jog .nome { font:600 18px/1.15 var(--display); }
+    .jog .meta { color:var(--mudo); font-size:13px; }
+    .jog .nums { margin-top:4px; font:500 15px/1.2 var(--display); color:var(--txt2); letter-spacing:.02em; }
+    .foto { width:100%; height:auto; aspect-ratio:1040/760; object-fit:cover; display:block; opacity:0; transition:opacity .25s; }
+    .foto.ok { opacity:1; }
+    .skel { background:var(--sup); border-radius:12px; aspect-ratio:156/190; animation:pulsa 1.4s ease-in-out infinite; }
+    @keyframes pulsa { 50% { opacity:.55; } }
+    .aviso { grid-column:1 / -1; margin:0; padding:16px; border-radius:12px; background:var(--sup); color:var(--txt2); }
+    .aviso.erro { border-left:3px solid #e66767; color:var(--txt); }
+    .aviso .btn { margin-top:10px; }
+    .mais { display:block; margin:18px auto 4px; }
+
+    .btn { border-radius:10px; border:1px solid var(--linha); background:var(--sup2); padding:8px 14px; cursor:pointer; }
+    .btn:hover { border-color:var(--mudo); }
+    .btn.pri { background:var(--bola); border-color:var(--bola); color:#fff; font-weight:600; }
+    .btn.pri:hover { background:#c55c22; }
+    .btn:disabled { opacity:.55; cursor:default; }
+
+    /* Ficha do jogador */
+    #ficha { scroll-margin-top:84px; }   /* não esconder o topo da ficha atrás do cabeçalho fixo */
+    .ficha { background:var(--sup); border-radius:16px; overflow:hidden; margin-bottom:22px; position:relative; }
+    .palco { background:var(--time) var(--quadra) center bottom/100% auto no-repeat; display:flex; justify-content:center;
+             padding-top:18px; position:relative; }
+    .palco .foto { width:min(440px, 92%); }
+    .camisa { position:absolute; right:22px; bottom:6px; font:700 120px/1 var(--display); color:rgba(255,255,255,.14); pointer-events:none; }
+    .fechar { position:absolute; right:12px; top:10px; z-index:2; width:36px; height:36px; border-radius:50%; border:0;
+              background:rgba(0,0,0,.35); font-size:22px; line-height:1; cursor:pointer; }
+    .corpo { padding:18px 22px 22px; text-align:center; }
+    .corpo h2 { font:700 clamp(32px, 4vw, 44px)/1 var(--display); margin:0 0 10px; }
+    .tags { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:10px; }
+    .tag { border:1px solid var(--linha); border-radius:999px; padding:2px 10px; font-size:13px; color:var(--txt2); }
+    .tag.top { border-color:#c9a227; color:#e8c95a; }
+    .destaque { color:var(--txt2); margin:4px 0 0; }
+    .grupo { margin-top:20px; text-align:left; }
+    .grupo h3 { font:600 15px/1 Barlow; color:var(--txt2); margin:0 0 8px; }
+    .kpis { display:grid; grid-template-columns:repeat(var(--cols), minmax(0,1fr)); gap:1px; background:var(--linha);
+            border:1px solid var(--linha); border-radius:12px; overflow:hidden; }
+    .kpi { background:var(--fundo); padding:12px 10px; text-align:center; }
+    .kpi b { display:block; font:600 clamp(24px, 2.6vw, 32px)/1.05 var(--display); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .kpi span { font-size:13px; color:var(--mudo); }
+    .acoes { margin-top:20px; }
+    .bio { margin-top:24px; text-align:left; }
+    .bio h3 { font:600 22px/1 var(--display); margin:0 0 10px; }
+    .bio p { max-width:72ch; margin:0 0 10px; color:var(--txt2); line-height:1.65; }
+    .bio .fonte { font-size:13px; color:var(--mudo); margin-top:6px; }
+    .bio a { color:var(--txt2); }
+    .link { background:none; border:0; padding:0; color:var(--bola-claro); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+    .linha-skel { display:block; height:12px; margin:10px 0; border-radius:6px; background:var(--sup2); animation:pulsa 1.4s ease-in-out infinite; }
+    .linha-skel.curta { width:55%; }
+
+    .barra-secao { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:26px 0 10px; }
+    .barra-secao h3 { font:600 22px/1 var(--display); margin:0 auto 0 0; }
+    .grafico { position:relative; }
+    .grafico svg { width:100%; height:auto; display:block; overflow:visible; }
+    .legenda { display:flex; gap:16px; font-size:13px; color:var(--txt2); margin:0 0 8px; flex-wrap:wrap; }
+    .legenda i { display:inline-block; width:16px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+    .dica { position:absolute; pointer-events:none; background:var(--fundo); border:1px solid var(--linha); border-radius:10px;
+            padding:8px 12px; font-size:13px; white-space:nowrap; display:none; box-shadow:0 8px 24px rgba(0,0,0,.45); }
+    .dica b { font-family:var(--display); font-size:16px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; }
+    th, td { padding:7px 8px; border-bottom:1px solid var(--linha); text-align:right; }
+    th { color:var(--mudo); font-weight:500; }
+    th:first-child, td:first-child { text-align:left; }
+    tr.melhor td { color:var(--bola-claro); font-weight:600; }
+    .nota { color:var(--mudo); font-size:13px; margin:14px 0 0; text-align:left; }
+
+    /* Chat */
+    .chat { background:var(--sup); border-radius:16px; display:flex; flex-direction:column; height:calc(100vh - 96px);
+            position:sticky; top:78px; overflow:hidden; }
+    .chat-topo { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--linha); }
+    .chat-topo h2 { font:600 20px/1 var(--display); margin:0; }
+    .chat-topo .fechar-chat { display:none; }
+    .msgs { flex:1; overflow:auto; padding:14px; display:flex; flex-direction:column; gap:12px; }
+    .msg { padding:10px 13px; border-radius:12px; line-height:1.55; max-width:100%; overflow-wrap:anywhere; }
+    .msg.eu { background:var(--sup2); align-self:flex-end; max-width:85%; border-bottom-right-radius:4px; }
+    .msg.ia { background:var(--fundo); border-bottom-left-radius:4px; }
+    .msg.ia table { margin:6px 0; font-size:13px; }
+    .msg h4 { font:600 18px/1.2 var(--display); margin:6px 0 2px; }
+    .sugestoes { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    .sugestoes button { text-align:left; background:var(--sup); border:1px solid var(--linha); border-radius:10px; padding:7px 11px; cursor:pointer; }
+    .sugestoes button:hover { border-color:var(--mudo); }
+    .etapa { display:flex; align-items:center; gap:10px; color:var(--txt2); }
+    .bola { width:16px; height:16px; border-radius:50%; background:var(--bola-claro); flex:none; animation:quica .7s ease-in infinite alternate; }
+    @keyframes quica { to { transform:translateY(-7px); } }
+    .fotos { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px,1fr)); gap:8px; margin-top:12px; }
+    .mini { background:var(--sup); border:0; border-radius:10px; overflow:hidden; cursor:pointer; padding:0; text-align:left; }
+    .mini .moldura { background:var(--time) var(--quadra) center/cover; }
+    .mini div.txt { padding:5px 7px 7px; font-size:12px; color:var(--txt2); }
+    .mini b { display:block; font:600 15px/1.1 var(--display); color:var(--txt); }
+    form.env { display:flex; gap:8px; padding:12px; border-top:1px solid var(--linha); }
+    form.env input { flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--linha); background:var(--fundo); }
+    .abrir-chat { display:none; }
+
+    /* Celular: o chat vira uma gaveta aberta por um botão flutuante */
+    @media (max-width:960px) {
+      main { grid-template-columns:1fr; padding:14px; }
+      #ficha { scroll-margin-top:124px; }
+      .chat { position:fixed; inset:0; top:auto; height:88vh; border-radius:18px 18px 0 0; z-index:20;
+              transform:translateY(100%); transition:transform .25s ease; box-shadow:0 -12px 40px rgba(0,0,0,.5); }
+      .chat.aberto { transform:none; }
+      .chat-topo .fechar-chat { display:inline-block; }
+      .abrir-chat { display:block; position:fixed; right:16px; bottom:16px; z-index:15; padding:12px 18px; border-radius:999px;
+                    box-shadow:0 6px 20px rgba(0,0,0,.45); }
+      .kpis { grid-template-columns:repeat(min(var(--cols), 3), minmax(0,1fr)); }
+      .camisa { font-size:80px; }
+      .busca kbd { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 class="marca">Agente <span>NBA</span></h1>
+    <label class="busca">
+      <input id="busca" type="search" placeholder="Buscar jogador pelo nome" autocomplete="off" aria-label="Buscar jogador pelo nome">
+      <kbd title="Atalho para a busca">/</kbd>
+    </label>
+    <div class="segmento" role="group" aria-label="Filtrar jogadores">
+      <button data-f="todos" aria-pressed="true">Todos</button>
+      <button data-f="ativos" aria-pressed="false">Em atividade</button>
+      <button data-f="top75" aria-pressed="false">Top 75 da NBA</button>
+    </div>
+  </header>
+
+  <main>
+    <section aria-label="Jogadores">
+      <div id="ficha"></div>
+      <div id="grade" class="grade" aria-live="polite"></div>
+      <button id="mais" class="btn mais" hidden>Mostrar mais jogadores</button>
+    </section>
+
+    <aside class="chat" id="chat" aria-label="Analista de IA">
+      <div class="chat-topo">
+        <h2>Analista de IA</h2>
+        <div>
+          <button class="btn" id="novo">Nova conversa</button>
+          <button class="btn fechar-chat" id="fecharChat" aria-label="Fechar chat">✕</button>
+        </div>
+      </div>
+      <div id="msgs" class="msgs" aria-live="polite"></div>
+      <form id="fChat" class="env">
+        <input id="pergunta" placeholder="Pergunte sobre um jogador" autocomplete="off" aria-label="Sua pergunta">
+        <button id="btnEnviar" class="btn pri">Perguntar</button>
+      </form>
+    </aside>
+  </main>
+  <button class="btn pri abrir-chat" id="abrirChat">Perguntar à IA</button>
+
+<script>
+  // ---------------- Utilidades ----------------
+  const SEM_FOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 76"><circle cx="52" cy="32" r="15" fill="#3d5379"/>' +
+    '<rect x="26" y="51" width="52" height="30" rx="15" fill="#3d5379"/></svg>');
+  const CORES_TIME = {
+    ATL:'#C8102E', BKN:'#3A3A3A', NJN:'#002A60', BOS:'#007A33', CHA:'#1D1160', CHH:'#00778B', CHI:'#CE1141',
+    CLE:'#860038', DAL:'#00538C', DEN:'#0E2240', DET:'#C8102E', GSW:'#1D428A', GOS:'#1D428A', HOU:'#CE1141',
+    IND:'#002D62', LAC:'#C8102E', LAL:'#552583', MEM:'#5D76A9', VAN:'#00B2A9', MIA:'#98002E', MIL:'#00471B',
+    MIN:'#0C2340', NOP:'#0C2340', NOH:'#00788C', NOK:'#00788C', NYK:'#006BB6', OKC:'#007AC1', SEA:'#00653A',
+    ORL:'#0077C0', PHI:'#006BB6', PHX:'#1D1160', POR:'#E03A3E', SAC:'#5A2D81', SAS:'#4A5459', TOR:'#CE1141',
+    UTA:'#002B5C', WAS:'#002B5C',
+  };
+  const corTime = sigla => CORES_TIME[sigla] || '#2C3F63';
+  const SUGESTOES = [
+    'Como foi a evolução do Stephen Curry?',
+    'Quem teve a maior média de pontos em 2005-06?',
+    'Compare LeBron James e Kevin Durant nos playoffs',
+    'Quais os 10 maiores assistentes da carreira?',
+  ];
+  const POR_PAGINA = 36;
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = v => (v == null || v === '' ? '—' : v);
+  const num = v => Number(v || 0).toLocaleString('pt-BR');
+  const dec = v => (v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+  // Altura vem em pés-polegadas ("6-2") e peso em libras: converte para o padrão brasileiro
+  const metros = a => { const m = /^(\d+)-(\d+)$/.exec(String(a || '')); return m ? ((m[1] * 12 + +m[2]) * 0.0254).toFixed(2).replace('.', ',') + ' m' : ''; };
+  const quilos = lb => (Number(lb) ? Math.round(lb * 0.4536) + ' kg' : '');
+  const foto = (src, alt, prioridade) =>
+    `<img class="foto" src="${esc(src)}" alt="${esc(alt)}" width="1040" height="760" decoding="async"
+      ${prioridade ? 'fetchpriority="high"' : 'loading="lazy"'}
+      onload="this.classList.add('ok')" onerror="this.onerror=null;this.src=SEM_FOTO">`;
+
+  // Cache no navegador: reabrir um jogador ou repetir uma busca não chama o servidor de novo.
+  // Pedidos em andamento também são compartilhados (o pré-carregamento no hover reaproveita).
+  const cacheCliente = new Map();
+  function chamar(fn, ...args) {
+    if (fn === 'perguntarAgente') {
+      return new Promise((ok, erro) => google.script.run.withSuccessHandler(ok).withFailureHandler(erro)[fn](...args));
+    }
+    const chave = fn + JSON.stringify(args);
+    if (!cacheCliente.has(chave)) {
+      const p = new Promise((ok, erro) => google.script.run.withSuccessHandler(ok).withFailureHandler(erro)[fn](...args));
+      p.catch(() => cacheCliente.delete(chave));
+      cacheCliente.set(chave, p);
+    }
+    return cacheCliente.get(chave);
+  }
+  const msgErro = e => String((e && e.message) || e).replace(/^Error:\s*/, '');
+
+  // ---------------- Galeria ----------------
+  const estado = { termo: '', filtro: 'todos', limite: POR_PAGINA, pedido: 0 };
+
+  async function carregarGaleria() {
+    const pedido = ++estado.pedido;   // descarta respostas de buscas antigas
+    if (estado.limite === POR_PAGINA) $('grade').innerHTML = '<div class="skel"></div>'.repeat(12);
+    // No 1º acesso o servidor ainda monta a planilha (~30 s): avisa em vez de só mostrar o carregando
+    const aviso = setTimeout(() => { if (pedido === estado.pedido) $('grade').insertAdjacentHTML('afterbegin',
+      '<p class="aviso">Preparando os dados do primeiro acesso. Isso leva cerca de 30 segundos e só acontece uma vez.</p>'); }, 4000);
+    try {
+      const lista = await chamar('buscarJogadores', estado.termo, estado.limite + 1, estado.filtro);
+      clearTimeout(aviso);
+      if (pedido !== estado.pedido) return;
+      $('mais').hidden = lista.length <= estado.limite;
+      $('grade').innerHTML = lista.slice(0, estado.limite).map(j => `
+        <button class="jog" data-id="${j.id}" style="--time:${corTime(j.sigla)}" aria-label="Ver performance de ${esc(j.nome)}">
+          <div class="moldura">${foto(j.foto, '')}</div>
+          <div class="info">
+            <div class="nome">${esc(j.nome)}${j.top75 === 'Y' ? ' <span title="Entre os 75 maiores da história da NBA">★</span>' : ''}</div>
+            <div class="meta">${esc(j.posicao)}, ${esc(j.de)}–${esc(j.ate)}</div>
+            <div class="nums">${dec(j.ppg)} PTS  ${dec(j.rpg)} REB  ${dec(j.apg)} AST</div>
+          </div>
+        </button>`).join('') ||
+        `<p class="aviso">Nenhum jogador encontrado com “${esc(estado.termo)}”. Confira a grafia ou tente só o sobrenome.</p>`;
+    } catch (e) {
+      clearTimeout(aviso);
+      if (pedido !== estado.pedido) return;
+      $('mais').hidden = true;
+      $('grade').innerHTML = `<div class="aviso erro">Não foi possível carregar os jogadores: ${esc(msgErro(e))}
+        <br><button class="btn" onclick="carregarGaleria()">Tentar de novo</button></div>`;
+    }
+  }
+
+  // Clique abre a ficha; parar o mouse sobre o card já pré-carrega os dados
+  let preCarga;
+  $('grade').addEventListener('click', e => { const b = e.target.closest('.jog'); if (b) abrir(Number(b.dataset.id)); });
+  $('grade').addEventListener('pointerover', e => {
+    const b = e.target.closest('.jog'); clearTimeout(preCarga);
+    if (b) preCarga = setTimeout(() => chamar('performanceJogador', Number(b.dataset.id), 'Regular').catch(() => {}), 150);
+  });
+
+  let tempoBusca;
+  $('busca').addEventListener('input', e => {
+    clearTimeout(tempoBusca);
+    tempoBusca = setTimeout(() => { estado.termo = e.target.value.trim(); estado.limite = POR_PAGINA; carregarGaleria(); }, 280);
+  });
+  document.querySelectorAll('.segmento[aria-label="Filtrar jogadores"] button').forEach(b => b.onclick = () => {
+    b.parentElement.querySelectorAll('button').forEach(c => c.setAttribute('aria-pressed', c === b));
+    estado.filtro = b.dataset.f; estado.limite = POR_PAGINA; carregarGaleria();
+  });
+  $('mais').onclick = () => { estado.limite += POR_PAGINA; carregarGaleria(); };
+
+  // ---------------- Ficha do jogador ----------------
+  let fichaAtual = null, modoAtual = 'grafico';
+
+  async function abrir(id, fase = 'Regular') {
+    const trocaJogador = !fichaAtual || fichaAtual.perfil.person_id !== id;
+    if (trocaJogador) {
+      $('ficha').innerHTML = '<div class="ficha"><div class="skel" style="aspect-ratio:auto;height:420px;border-radius:0"></div></div>';
+      $('ficha').scrollIntoView({ block: 'start' });
+    }
+    try {
+      fichaAtual = await chamar('performanceJogador', id, fase);
+      desenharFicha();
+      if (trocaJogador) $('ficha').querySelector('h2').focus({ preventScroll: true });
+    } catch (e) {
+      $('ficha').innerHTML = `<div class="ficha"><div class="corpo">Não foi possível abrir este jogador: ${esc(msgErro(e))}
+        <br><br><button class="btn" onclick="abrir(${Number(id)}, '${fase}')">Tentar de novo</button></div></div>`;
+    }
+  }
+
+  function fecharFicha() { fichaAtual = null; $('ficha').innerHTML = ''; }
+
+  const grupo = (titulo, itens, cols = itens.length) => `<div class="grupo"><h3>${titulo}</h3>
+    <div class="kpis" style="--cols:${cols}">${itens.map(([v, rot]) => `<div class="kpi"><b>${v}</b><span>${rot}</span></div>`).join('')}</div></div>`;
+
+  function desenharFicha() {
+    const d = fichaAtual, p = d.perfil, c = d.carreira, t = c.totais;
+    const melhor = d.temporadas.reduce((m, s) => (!m || s.ppg > m.ppg ? s : m), null);
+    const regular = d.fase === 'Regular';
+    const tags = [p.posicao, p.time, metros(p.altura), quilos(p.peso), p.pais, p.de && `${p.de}–${p.ate}`]
+      .filter(Boolean).map(x => `<span class="tag">${esc(x)}</span>`).join('');
+    $('ficha').innerHTML = `
+      <article class="ficha" style="--time:${corTime(p.sigla_time)}" aria-labelledby="nomeJogador">
+        <div class="palco">
+          <button class="fechar" onclick="fecharFicha()" aria-label="Fechar ficha">×</button>
+          ${foto(p.foto, 'Foto de ' + p.nome, true)}
+          ${p.camisa !== '' && p.camisa != null ? `<span class="camisa" aria-hidden="true">${esc(p.camisa)}</span>` : ''}
+        </div>
+        <div class="corpo">
+          <h2 id="nomeJogador" tabindex="-1">${esc(p.nome)}</h2>
+          <div class="tags">${p.top75 === 'Y' ? '<span class="tag top">★ Top 75 da NBA</span>' : ''}${tags}</div>
+          ${melhor ? `<p class="destaque">Melhor temporada: <b>${esc(melhor.temporada)}</b>, com ${dec(melhor.ppg)} pontos por jogo</p>` : ''}
+
+          ${grupo(regular ? 'Médias por jogo na temporada regular' : 'Médias por jogo nos playoffs', [
+            [dec(c.ppg), 'Pontos'], [dec(c.rpg), 'Rebotes'], [dec(c.apg), 'Assistências'],
+            [dec(c.spg), 'Roubos'], [dec(c.bpg), 'Tocos'], [dec(c.tpg), 'Erros']])}
+          ${grupo('Aproveitamento', [
+            [dec(c.fg_pct) + '%', 'Arremessos de quadra'], [dec(c.fg3_pct) + '%', 'Bolas de 3'], [dec(c.ft_pct) + '%', 'Lances livres']])}
+          ${grupo('Totais registrados no dataset', [
+            [num(c.jogos), 'Jogos'], [num(t.pts), 'Pontos'], [num(t.reb), 'Rebotes'], [num(t.ast), 'Assistências'],
+            [num(t.stl), 'Roubos'], [num(t.blk), 'Tocos'], [num(t.fg3m) + '/' + num(t.fg3a), 'Bolas de 3 certas/tentadas'],
+            [num(t.ftm) + '/' + num(t.fta), 'Lances livres certos/tentados']], 4)}
+
+          <section class="bio" id="bio" aria-labelledby="tituloBio" aria-busy="true">
+            <h3 id="tituloBio">Biografia</h3>
+            <div class="bio-texto"><span class="linha-skel"></span><span class="linha-skel"></span><span class="linha-skel curta"></span></div>
+          </section>
+
+          <div class="acoes"><button class="btn pri" id="btnAnalisar">Analisar carreira com IA</button></div>
+
+          <div class="barra-secao">
+            <h3>Temporada a temporada</h3>
+            <div class="segmento" role="group" aria-label="Fase">
+              <button aria-pressed="${regular}" onclick="abrir(${p.person_id}, 'Regular')">Temporada regular</button>
+              <button aria-pressed="${!regular}" onclick="abrir(${p.person_id}, 'Playoffs')">Playoffs</button>
+            </div>
+            <div class="segmento" role="group" aria-label="Visualização">
+              <button aria-pressed="${modoAtual === 'grafico'}" onclick="modoAtual='grafico';desenharFicha()">Gráfico</button>
+              <button aria-pressed="${modoAtual === 'tabela'}" onclick="modoAtual='tabela';desenharFicha()">Tabela</button>
+            </div>
+          </div>
+          ${!d.temporadas.length ? `<p class="nota">${esc(p.nome)} não tem jogos de ${regular ? 'temporada regular' : 'playoffs'} no dataset.</p>`
+            : modoAtual === 'grafico' ? grafico(d.temporadas, melhor) : tabela(d.temporadas, melhor)}
+          <p class="nota">Médias calculadas jogada a jogada a partir do dataset do Kaggle (1996-97 a 2022-23). A temporada 2012-13 não está no dataset e alguns jogos faltam, por isso os totais ficam abaixo dos oficiais.</p>
+        </div>
+      </article>`;
+    $('btnAnalisar').onclick = () => {
+      abrirChat();
+      enviar(`Analise a carreira de ${p.nome} (${regular ? 'temporada regular' : 'playoffs'}).`);
+    };
+    if (modoAtual === 'grafico' && d.temporadas.length) ligarDica(d.temporadas);
+    carregarBiografia(p.person_id);
+  }
+
+  // A biografia vem da Wikipédia e carrega depois da ficha, sem atrasar as estatísticas
+  let bioAberta = false;
+  async function carregarBiografia(id) {
+    const caixa = $('bio');
+    try {
+      const b = await chamar('biografiaJogador', id);
+      if (!fichaAtual || fichaAtual.perfil.person_id !== id || !$('bio')) return;   // usuário já trocou de jogador
+      caixa.setAttribute('aria-busy', 'false');
+      if (!b.paragrafos.length) { caixa.querySelector('.bio-texto').innerHTML = '<p class="nota">Biografia indisponível para este jogador.</p>'; return; }
+      const [primeiro, ...resto] = b.paragrafos;
+      caixa.querySelector('.bio-texto').innerHTML = `
+        <p>${esc(primeiro)}</p>
+        ${resto.length ? `<div class="bio-resto" ${bioAberta ? '' : 'hidden'}>${resto.map(t => `<p>${esc(t)}</p>`).join('')}</div>
+          <button class="link" id="bioMais" aria-expanded="${bioAberta}">${bioAberta ? 'Mostrar menos' : 'Ler biografia completa'}</button>` : ''}
+        <p class="fonte">Fonte: <a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.fonte)}</a>, licença CC BY-SA</p>`;
+      const mais = $('bioMais');
+      if (mais) mais.onclick = () => {
+        bioAberta = !bioAberta;
+        caixa.querySelector('.bio-resto').hidden = !bioAberta;
+        mais.setAttribute('aria-expanded', bioAberta);
+        mais.textContent = bioAberta ? 'Mostrar menos' : 'Ler biografia completa';
+      };
+    } catch (e) {
+      if ($('bio')) $('bio').querySelector('.bio-texto').innerHTML =
+        `<p class="nota">Não foi possível carregar a biografia agora. <button class="link" onclick="carregarBiografia(${Number(id)})">Tentar de novo</button></p>`;
+    }
+  }
+
+  function tabela(ts, melhor) {
+    return `<div style="overflow:auto"><table>
+      <caption class="nota" style="caption-side:top;margin:0 0 6px">Médias por jogo. A linha destacada é a melhor temporada em pontos.</caption>
+      <tr><th>Temporada</th><th>Jogos</th><th>PTS</th><th>REB</th><th>AST</th><th>ROU</th><th>TOC</th><th>ERR</th><th>FG%</th><th>3P%</th><th>LL%</th></tr>
+      ${ts.map(t => `<tr class="${t === melhor ? 'melhor' : ''}"><td>${esc(t.temporada)}</td><td>${t.jogos}</td><td>${dec(t.ppg)}</td><td>${dec(t.rpg)}</td>
+        <td>${dec(t.apg)}</td><td>${dec(t.spg)}</td><td>${dec(t.bpg)}</td><td>${dec(t.tpg)}</td><td>${dec(t.fg_pct)}</td><td>${dec(t.fg3_pct)}</td><td>${dec(t.ft_pct)}</td></tr>`).join('')}
+    </table></div>`;
+  }
+
+  // Gráfico de linhas: três medidas na mesma unidade (por jogo), um único eixo
+  const SERIES = [
+    { k: 'ppg', nome: 'Pontos', cor: 'var(--s1)' },
+    { k: 'rpg', nome: 'Rebotes', cor: 'var(--s2)' },
+    { k: 'apg', nome: 'Assistências', cor: 'var(--s3)' },
+  ];
+  const G = { w: 760, h: 270, e: 34, d: 110, t: 18, b: 28 };
+  function escala(ts) {
+    const max = Math.max(5, ...ts.flatMap(t => SERIES.map(s => t[s.k])));
+    const passo = max > 25 ? 10 : 5, topo = Math.ceil(max / passo) * passo, larg = G.w - G.e - G.d;
+    return {
+      topo, passo,
+      x: i => G.e + (ts.length === 1 ? larg / 2 : (i * larg) / (ts.length - 1)),
+      y: v => G.t + (1 - v / topo) * (G.h - G.t - G.b),
+    };
+  }
+
+  function grafico(ts, melhor) {
+    const { topo, passo, x, y } = escala(ts);
+    const grade = [];
+    for (let v = 0; v <= topo; v += passo)
+      grade.push(`<line x1="${G.e}" x2="${G.w - G.d}" y1="${y(v)}" y2="${y(v)}" stroke="#2C3F63"/>
+                  <text x="${G.e - 8}" y="${y(v) + 4}" text-anchor="end" fill="#8B9BB6" font-size="12">${v}</text>`);
+    const cadaN = Math.ceil(ts.length / 10);
+    const rotulos = ts.map((t, i) => i % cadaN ? '' :
+      `<text x="${x(i)}" y="${G.h - 6}" text-anchor="middle" fill="#8B9BB6" font-size="12">${esc(t.temporada.slice(2))}</text>`).join('');
+    const ult = ts.length - 1;
+    const fim = SERIES.map(s => ({ s, y: y(ts[ult][s.k]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < fim.length; i++) fim[i].y = Math.max(fim[i].y, fim[i - 1].y + 16);
+    const linhas = SERIES.map(s => `
+      <polyline fill="none" stroke="${s.cor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+        points="${ts.map((t, i) => x(i) + ',' + y(t[s.k])).join(' ')}"/>
+      ${ts.length === 1 ? `<circle cx="${x(0)}" cy="${y(ts[0][s.k])}" r="4" fill="${s.cor}"/>` : ''}`).join('');
+    const finais = fim.map(f => `<text x="${G.w - G.d + 10}" y="${f.y + 4}" fill="#B6C2D6" font-size="13">
+      <tspan fill="${f.s.cor}">●</tspan> ${f.s.nome} ${dec(ts[ult][f.s.k])}</text>`).join('');
+    const iM = ts.indexOf(melhor);
+    const marca = iM >= 0 ? `<circle cx="${x(iM)}" cy="${y(melhor.ppg)}" r="5" fill="var(--s1)" stroke="#18263F" stroke-width="2"/>
+      <text x="${x(iM)}" y="${y(melhor.ppg) - 10}" text-anchor="middle" fill="#EEF2F8" font-size="12" font-weight="600">Melhor: ${dec(melhor.ppg)}</text>` : '';
+    return `<div class="legenda">${SERIES.map(s => `<span><i style="background:${s.cor}"></i>${s.nome} por jogo</span>`).join('')}</div>
+      <div class="grafico" id="grafico">
+        <svg viewBox="0 0 ${G.w} ${G.h}" role="img" aria-label="Pontos, rebotes e assistências por jogo em cada temporada. Use a tabela para ver os valores.">
+          ${grade.join('')}${rotulos}${linhas}${marca}${finais}
+          <line id="mira" y1="${G.t}" y2="${G.h - G.b}" stroke="#8B9BB6" stroke-dasharray="3 3" visibility="hidden"/>
+          <g id="pontos"></g>
+          <rect id="area" x="${G.e}" y="0" width="${G.w - G.e - G.d}" height="${G.h}" fill="transparent"/>
+        </svg>
+        <div class="dica" id="dica"></div>
+      </div>`;
+  }
+
+  function ligarDica(ts) {
+    const svg = document.querySelector('#grafico svg'), area = $('area'), dica = $('dica');
+    const { x, y } = escala(ts), larg = G.w - G.e - G.d;
+    const mover = ev => {
+      const r = svg.getBoundingClientRect(), k = G.w / r.width;
+      const px = (ev.clientX - r.left) * k;
+      const i = ts.length === 1 ? 0 : Math.max(0, Math.min(ts.length - 1, Math.round(((px - G.e) / larg) * (ts.length - 1))));
+      const cx = x(i), t = ts[i];
+      $('mira').setAttribute('x1', cx); $('mira').setAttribute('x2', cx); $('mira').setAttribute('visibility', 'visible');
+      $('pontos').innerHTML = SERIES.map(s => `<circle cx="${cx}" cy="${y(t[s.k])}" r="5" fill="${s.cor}" stroke="#18263F" stroke-width="2"/>`).join('');
+      dica.innerHTML = `<b>${esc(t.temporada)}</b> <span style="color:var(--mudo)">${t.jogos} jogos</span>` +
+        SERIES.map(s => `<div><span style="color:${s.cor}">●</span> ${s.nome}: <b>${dec(t[s.k])}</b></div>`).join('') +
+        `<div style="color:var(--mudo)">Arremessos ${dec(t.fg_pct)}%, bolas de 3 ${dec(t.fg3_pct)}%</div>`;
+      dica.style.display = 'block';
+      const esq = cx / k + 16;
+      dica.style.left = (esq + dica.offsetWidth > r.width ? cx / k - dica.offsetWidth - 16 : esq) + 'px';
+      dica.style.top = '8px';
+    };
+    area.addEventListener('pointermove', mover);
+    area.addEventListener('pointerleave', () => { dica.style.display = 'none'; $('mira').setAttribute('visibility', 'hidden'); $('pontos').innerHTML = ''; });
+  }
+
+  // ---------------- Chat com o agente ----------------
+  let historico = [];
+  const CHAVE_SESSAO = 'agente-nba-chat';
+
+  function markdown(t) {
+    let html = '', tabela = [];
+    const fechar = () => {
+      if (!tabela.length) return;
+      const rows = tabela.filter(l => !/^\|?\s*:?-{2,}/.test(l)).map(l => l.replace(/^\||\|$/g, '').split('|'));
+      html += '<div style="overflow:auto"><table>' + rows.map((r, i) => '<tr>' +
+        r.map(c => i ? `<td>${c.trim()}</td>` : `<th>${c.trim()}</th>`).join('') + '</tr>').join('') + '</table></div>';
+      tabela = [];
+    };
+    esc(t).split('\n').forEach(l => {
+      if (l.trim().startsWith('|')) { tabela.push(l.trim()); return; }
+      fechar();
+      if (/^\s*(-{3,}|\*{3,})\s*$/.test(l)) { html += '<hr style="border:0;border-top:1px solid var(--linha);margin:8px 0">'; return; }
+      if (/^#{1,4}\s/.test(l)) { html += `<h4>${l.replace(/^#{1,4}\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1')}</h4>`; return; }
+      html += l.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+               .replace(/^(\s*)[-*]\s+/, (m, esp) => (esp.length ? '&nbsp;&nbsp;&nbsp;◦ ' : '• '))
+               .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>') + '<br>';
+    });
+    fechar();
+    return html.replace(/(<br>){3,}/g, '<br><br>');
+  }
+
+  function addMsg(classe, html, salvar = true) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + classe;
+    div.innerHTML = html;
+    if (salvar) div.dataset.salvar = '1';
+    $('msgs').appendChild(div);
+    $('msgs').scrollTop = $('msgs').scrollHeight;
+    return div;
+  }
+
+  // A conversa sobrevive a um recarregamento da página (sessionStorage da aba)
+  function salvarConversa() {
+    try {
+      const msgs = [...$('msgs').querySelectorAll('.msg[data-salvar]')].map(m => ({ c: m.classList.contains('eu') ? 'eu' : 'ia', h: m.innerHTML }));
+      sessionStorage.setItem(CHAVE_SESSAO, JSON.stringify({ historico, msgs }));
+    } catch (e) { /* armazenamento indisponível: segue sem salvar */ }
+  }
+
+  function boasVindas() {
+    historico = [];
+    try { sessionStorage.removeItem(CHAVE_SESSAO); } catch (e) {}
+    $('msgs').innerHTML = '';
+    const m = addMsg('ia', 'Pergunte sobre qualquer jogador da NBA entre 1996 e 2023. Eu consulto os números antes de responder.' +
+      `<div class="sugestoes">${SUGESTOES.map(s => `<button type="button">${esc(s)}</button>`).join('')}</div>`, false);
+    m.querySelectorAll('.sugestoes button').forEach(b => b.onclick = () => enviar(b.textContent));
+  }
+
+  function restaurarConversa() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem(CHAVE_SESSAO) || 'null');
+      if (!s || !s.msgs.length) return false;
+      historico = s.historico || [];
+      $('msgs').innerHTML = '';
+      s.msgs.forEach(m => addMsg(m.c, m.h));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // Etapas mostradas enquanto o Gemini trabalha (uma resposta leva de 15 a 60 s)
+  const ETAPAS = [[0, 'Lendo a pergunta'], [2500, 'Consultando as estatísticas'], [9000, 'Comparando as temporadas'],
+                  [20000, 'Escrevendo a análise'], [40000, 'O Gemini está com muita demanda agora, continuo tentando']];
+
+  let ocupado = false;
+  async function enviar(pergunta) {
+    pergunta = pergunta.trim();
+    if (!pergunta || ocupado) return;
+    ocupado = true;
+    $('btnEnviar').disabled = true;
+    addMsg('eu', esc(pergunta));
+    const aguarde = addMsg('ia', '', false);
+    const timers = ETAPAS.map(([ms, txt]) => setTimeout(() =>
+      (aguarde.innerHTML = `<div class="etapa"><span class="bola" aria-hidden="true"></span>${txt}…</div>`), ms));
+    try {
+      const r = await chamar('perguntarAgente', pergunta, historico);
+      historico = r.historico;
+      const fotos = r.jogadores.length ? `<div class="fotos">${r.jogadores.map(j => `
+        <button class="mini" style="--time:${corTime(j.sigla)}" onclick="abrir(${Number(j.id)})" title="Abrir a ficha de ${esc(j.nome)}">
+          <div class="moldura">${foto(j.foto, '')}</div>
+          <div class="txt"><b>${esc(j.nome)}</b>${dec(j.ppg)} pts, ${dec(j.rpg)} reb, ${dec(j.apg)} ast</div></button>`).join('')}</div>` : '';
+      aguarde.innerHTML = markdown(r.texto) + fotos;
+      aguarde.dataset.salvar = '1';
+    } catch (e) {
+      aguarde.innerHTML = `Não consegui responder: ${esc(msgErro(e))}. Envie a pergunta de novo em alguns segundos.`;
+    }
+    timers.forEach(clearTimeout);
+    salvarConversa();
+    $('msgs').scrollTop = $('msgs').scrollHeight;
+    ocupado = false;
+    $('btnEnviar').disabled = false;
+    if (window.matchMedia('(min-width: 961px)').matches) $('pergunta').focus();
+  }
+
+  function abrirChat() { $('chat').classList.add('aberto'); }
+  function fecharChat() { $('chat').classList.remove('aberto'); }
+
+  $('fChat').onsubmit = e => { e.preventDefault(); const q = $('pergunta').value; $('pergunta').value = ''; enviar(q); };
+  $('novo').onclick = boasVindas;
+  $('abrirChat').onclick = () => { abrirChat(); $('pergunta').focus(); };
+  $('fecharChat').onclick = fecharChat;
+
+  // Atalhos: "/" vai para a busca; Esc fecha o chat (celular) ou a ficha
+  document.addEventListener('keydown', e => {
+    const digitando = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
+    if (e.key === '/' && !digitando) { e.preventDefault(); $('busca').focus(); }
+    if (e.key === 'Escape') {
+      if ($('chat').classList.contains('aberto')) fecharChat();
+      else if (fichaAtual && !digitando) fecharFicha();
+    }
+  });
+
+  if (!restaurarConversa()) boasVindas();
+  carregarGaleria();
+</script>
+</body>
+</html>

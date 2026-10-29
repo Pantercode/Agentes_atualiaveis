@@ -1,0 +1,4 @@
+.venv/
+__pycache__/
+saida/
+apps-script/chave.gs
